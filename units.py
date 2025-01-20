@@ -1,0 +1,3 @@
+MILES = 'mi'
+KILOMETERS = 'km'
+FACTOR = 1.609344
