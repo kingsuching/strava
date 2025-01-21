@@ -1,15 +1,13 @@
 import units
-import pandas as pd
-import numpy as np
 
 class Pace:
     def __init__(self, min, sec=0, unit=units.MILES):
-        self.min = min
-        self.sec = sec
-        self.time = min * 60 + sec
+        self.min = abs(min)
+        self.sec = abs(sec)
+        self.time = min*60 + sec
         self.unit = unit
-        if self.unit != units.MILES and self.unit != units.KILOMETERS:
-            raise ValueError(f"Invalid unit: {unit}")
+        if self.unit not in [units.MILES, units.KILOMETERS]:
+            raise ValueError(f"Unit must be miles or kilometers. Got {unit}")
 
     def __str__(self):
         return f"{self.min}:{self.sec:02}/{self.unit}"
@@ -64,6 +62,9 @@ class Pace:
     def __float__(self):
         return float(self.time)
 
+    def __neg__(self):
+        return Pace.fromSeconds(-self.time, self.unit)
+
     def convert(self):
         if self.unit == units.MILES:
             newTime = self.time / units.FACTOR
@@ -85,11 +86,11 @@ class Pace:
             return Pace(0, units.MILES)
 
         # Convert m/s to min/mi
-        time_in_seconds = (1 / speed_in_mps) * 1609.344  # Total time in seconds for 1 mile
-        minutes = int(time_in_seconds // 60)  # Extract minutes
-        seconds = int(time_in_seconds % 60)  # Extract remaining seconds
+        time_in_seconds = (1 / speed_in_mps) * 1609.344
+        minutes = int(time_in_seconds // 60)
+        seconds = int(time_in_seconds % 60)
 
-        return cls(minutes, seconds, units.MILES)
+        return Pace(minutes, seconds, units.MILES)
 
     @classmethod
     def fromSeconds(cls, time_in_seconds, unit=units.MILES):
@@ -103,8 +104,6 @@ class Pace:
         seconds = int(time_in_seconds % 60)
         return Pace(minutes, seconds, unit)
 
-if __name__ == '__main__':
-    p1 = Pace(9, 30)
-    p2 = Pace(10)
-    items = [p1, p2]
-    print(sum(items) / len(items))
+    @classmethod
+    def mean(cls, listOfPaces):
+        return sum(listOfPaces)/len(listOfPaces)
