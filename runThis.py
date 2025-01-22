@@ -1,0 +1,307 @@
+import os.path
+
+import pandas as pd
+import numpy as np
+from stravalib import Client
+import webbrowser
+
+import units
+from Pace import Pace
+from units import *
+import plotly.express as px
+import plotly.graph_objects as go
+import matplotlib.pyplot as plt
+import plotly.io as pio
+import webbrowser
+from functions import *
+from tqdm import tqdm
+import pickle
+import warnings
+from units import *
+warnings.filterwarnings('ignore')
+
+def setUpClient(client_id, client_secret):
+    client = Client()
+    if os.path.exists(PKL):
+        with open(PKL, 'rb') as f:
+            client = pickle.load(f)
+            print('Client loaded')
+            return client
+
+    print('No client found. you must authenticate. Follow instructions in the readme to get the code. Opening link in browser')
+    try:
+        authorize_url = client.authorization_url(client_id=client_id,
+                                             redirect_uri='http://localhost:1127/authorized',
+                                             scope=['read_all', 'profile:read_all', 'activity:read_all'])
+    except:
+        print('Invalid client credentials')
+        return
+
+    webbrowser.open(authorize_url)
+    code = input("Code: ")
+    tokenStuff = client.exchange_code_for_token(client_id=client_id, client_secret=client_secret, code=code)
+
+    access = tokenStuff['access_token']
+    client.access_token = access
+    print('Client access token assigned')
+    with open(PKL, 'wb') as f:
+        pickle.dump(client, f)
+    return client
+
+
+def getActivities(client):
+    activities = client.get_activities()
+    activity_list = []
+    for activity in activities:
+        activity_dict = {
+            'id': activity.id,
+            'name': activity.name,
+            'start_date': activity.start_date,
+            'distance': activity.distance,  # Convert distance to numeric (meters)
+            'moving_time': activity.moving_time,  # Convert to seconds
+            'elapsed_time': activity.elapsed_time,  # Convert to seconds
+            'total_elevation_gain': activity.total_elevation_gain,
+            'type': activity.type,
+            'average_speed': activity.average_speed if activity.average_speed else None,  # Convert to numeric
+            'max_speed': activity.max_speed if activity.max_speed else None,  # Convert to numeric
+            'average_heartrate': activity.average_heartrate,
+            'max_heartrate': activity.max_heartrate,
+        }
+        activity_list.append(activity_dict)
+    myActivities = pd.DataFrame(activity_list)
+    myActivities = myActivities[myActivities['type'].astype(str).apply(lambda x: 'Run' in x)]
+    myActivities.to_csv('myActivities.csv')
+    return myActivities
+
+
+def get_activity_streams(client, activity_id, resolution='high'):
+    """
+    Fetch heart rate, pace (velocity), and elevation streams for a given activity ID.
+    """
+    streams = client.get_activity_streams(
+        activity_id,
+        types=['heartrate', 'velocity_smooth', 'altitude', 'time', 'distance'],
+        resolution=resolution,
+    )
+
+    heart_rate = streams['heartrate'].data if 'heartrate' in streams else None
+    velocity = streams['velocity_smooth'].data if 'velocity_smooth' in streams else None
+    elevation = streams['altitude'].data if 'altitude' in streams else None
+    time_index = streams['time'].data if 'time' in streams else None
+    distance_index = streams['distance'].data if 'distance' in streams else None
+    return heart_rate, velocity, elevation, time_index, distance_index
+
+
+def makePlots(client, rowId):
+    myActivities = getActivities(client)
+    things = myActivities.iloc[rowId]
+    activityId = things['id']
+    name = things['name']
+    hr, pace, elevation, timeIdx, distanceIdx = get_activity_streams(client, activityId, resolution='high')
+
+    # Convert to imperial system
+    elevation = [int(round(metersToFeet(elev), 0)) for elev in elevation]
+    timeIdx = [i / 60 for i in timeIdx]
+    distanceIdx = [round(metersToMiles(i), 2) for i in distanceIdx]
+
+    pace = [Pace.from_mps(v) for v in pace if v > 0]
+
+    """Pace Plots"""
+    # Time
+    diff = len(timeIdx) - len(pace)
+    average = sum(pace) / len(pace)
+    x = pace + [average] * diff
+
+    stuff = numericPlot('Pace', x, timeIdx, distanceIdx)
+    myPaces = stuff['Pace']
+    index = stuff['Time']
+
+    y_values = [pace.time/60 for pace in myPaces]
+    labels = [str(pace) for pace in myPaces]
+
+    # Create the plot
+    fig = go.Figure(data=go.Scatter(
+        x=index,
+        y=y_values,
+        mode='markers+lines',
+        text=labels
+    ))
+
+    fig.update_layout(
+        title='Pace Plot',
+        xaxis_title='Time',
+        yaxis_title='Pace (min/mi)'
+    )
+    if not os.path.exists(units.PLOT_FOLDER):
+        os.makedirs(units.PLOT_FOLDER)
+
+    pio.write_html(fig, os.path.join(units.PLOT_FOLDER, f'{name}_pace_time{units.EXTENSION}'))
+
+    # Distance
+    index = stuff['Distance']
+    y_values = [pace.time / 60 for pace in myPaces]
+    labels = [str(pace) for pace in myPaces]
+    fig = go.Figure(data=go.Scatter(
+        x=index,
+        y=y_values,
+        mode='markers+lines',
+        text=labels
+    ))
+    fig.update_layout(
+        title='Pace Plot',
+        xaxis_title='Distance (mi)',
+        yaxis_title='Pace (min/mi)'
+    )
+
+    pio.write_html(fig, os.path.join(units.PLOT_FOLDER, f'{name}_pace_distance{units.EXTENSION}'))
+
+    """ HR """
+    # Time
+
+    zones = client.get_athlete_zones().dict()
+    values = zones['heart_rate']['zones'][:-1]
+    base = 'HR'
+    data = numericPlot(base, hr, timeIdx, distanceIdx)
+    try:
+        data['Zone']
+    except:
+        data['Zone'] = data[base].apply(lambda x: getZone(values, x))
+
+    fig = go.Figure()
+    zone_colors = {
+        'Zone 1': 'green',
+        'Zone 2': 'yellow',
+        'Zone 3': 'orange',
+        'Zone 4': 'red'
+    }
+
+    # Create the figure
+    fig = go.Figure()
+
+    # Add traces for each zone
+    for zone in data['Zone'].unique():
+        zone_data = data[data['Zone'] == zone]
+        fig.add_trace(go.Scatter(
+            x=zone_data['Time'],
+            y=zone_data['HR'],
+            mode='lines',
+            name=zone,
+            line=dict(color=zone_colors[zone], width=1)  # Assign color based on zone
+        ))
+
+    fig.update_layout(
+        title=f'{base}: {name}',
+        xaxis_title='Time',
+        yaxis_title=base,
+        autosize=False,
+        width=800,
+        height=600
+    )
+
+    pio.write_html(fig, os.path.join(units.PLOT_FOLDER, f'{name}_hr_time{units.EXTENSION}'))
+
+    # Distance
+    fig = go.Figure()
+
+    # Add traces for each zone using Distance as the x-axis
+    for zone in data['Zone'].unique():
+        zone_data = data[data['Zone'] == zone]
+        fig.add_trace(go.Scatter(
+            x=zone_data['Distance'],
+            y=zone_data['HR'],
+            mode='lines',
+            name=zone,
+            line=dict(color=zone_colors[zone], width=1)  # Assign color based on zone
+        ))
+
+    fig.update_layout(
+        title=f'{base}: {name}',
+        xaxis_title='Distance',
+        yaxis_title=base,
+        autosize=False,
+        width=800,
+        height=600
+    )
+
+    pio.write_html(fig, os.path.join(units.PLOT_FOLDER, f'{name}_hr_distance{units.EXTENSION}'))
+
+    if not os.path.exists('analysis'):
+        os.makedirs('analysis')
+
+    analysisFile = f'analysis/{name}_analysis.txt'
+    open(analysisFile, 'w').close()
+    with open(analysisFile, 'w') as f:
+        data['Pace'] = x
+
+        grouped = data.groupby('Zone').mean()
+        minimums = data.groupby('Zone').min()
+        maximums = data.groupby('Zone').max()
+        minimums['Pace'] = minimums['Pace'].apply(lambda x: x.time).apply(lambda j: Pace.fromSeconds(j))
+        maximums['Pace'] = maximums['Pace'].apply(lambda x: x.time).apply(lambda j: Pace.fromSeconds(j))
+        for z in grouped.index:
+            item = f'{z} Average Pace: {Pace.fromSeconds(grouped.loc[z, "Pace"])}'
+            f.write(item + '\n')
+        f.write('\n\n')
+        for z in minimums.index:
+            item = f'{z} Range: {minimums.loc[z, "Pace"]} to {maximums.loc[z, "Pace"]}'
+            f.write(item + '\n')
+
+    """ Pace-HR Boxplot"""
+
+    newStuff = pd.DataFrame({
+        'Zone': data['Zone'],
+        'Pace': [pace.time / 60 for pace in data['Pace']],  # Convert pace to minutes per mile
+        'PaceStr': [str(pace) for pace in data['Pace']]  # String representation of pace
+    })
+    data = pd.concat([data, newStuff], axis=1)
+
+    # Create the boxplot
+    fig = go.Figure()
+
+    # Add traces for each zone using Distance as the x-axis
+    for zone in data['Zone'].unique():
+        zone_data = data[data['Zone'] == zone]
+        fig.add_trace(go.Scatter(
+            x=zone_data['Distance'],
+            y=zone_data['Pace'],
+            mode='markers+lines',
+            name=zone,
+            text=zone_data['PaceStr'],  # Tooltip labels
+            hoverinfo='text'  # Show only the text in the tooltip
+        ))
+
+    fig.update_layout(
+        title='Min and Max Pace in Each Heart Rate Zone',
+        xaxis_title='Distance',
+        yaxis_title='Pace (min/mi)',
+        autosize=False,
+        width=800,
+        height=600
+    )
+
+    pio.write_html(fig, os.path.join(units.PLOT_FOLDER, f'{name}_pace_hr_boxplot{units.EXTENSION}'))
+
+def getZone(values, hr):
+    n = len(values)
+    assert hr >= 0, 'HR must be non-negative'
+    for i in range(n):
+        bucket = values[i]
+        if bucket['min'] <= hr <= bucket['max']:
+            return f'Zone {i+1}'
+    raise ValueError(f'HR {hr} is out of range')
+
+def numericPlot(base, items, timeIdx, distanceIdx):
+    data = pd.DataFrame({
+        base: items,
+        'Time': timeIdx,
+        'Distance': distanceIdx
+    })
+    return data
+
+
+if __name__ == '__main__':
+    CLIENT_ID = 145799
+    CLIENT_SECRET = 'bd21c12ed936cfa96efc06b5b7ab37660c5629db'
+    my_client = setUpClient(CLIENT_ID, CLIENT_SECRET)
+
+    makePlots(my_client, 0)
