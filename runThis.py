@@ -25,10 +25,13 @@ def setUpClient(client_id, client_secret):
     if os.path.exists(PKL):
         with open(PKL, 'rb') as f:
             client = pickle.load(f)
-            print('Client loaded')
-            return client
+            try:
+                client.get_athlete()
+                print('Client works')
+                return client
+            except:
+                pass
 
-    print('No client found. you must authenticate. Follow instructions in the readme to get the code. Opening link in browser')
     try:
         authorize_url = client.authorization_url(client_id=client_id,
                                              redirect_uri='http://localhost:1127/authorized',
@@ -46,6 +49,7 @@ def setUpClient(client_id, client_secret):
     print('Client access token assigned')
     with open(PKL, 'wb') as f:
         pickle.dump(client, f)
+
     return client
 
 
@@ -248,32 +252,32 @@ def makePlots(client, rowId):
 
     """ Pace-HR Boxplot"""
 
-    newStuff = pd.DataFrame({
-        'Zone': data['Zone'],
-        'Pace': [pace.time / 60 for pace in data['Pace']],  # Convert pace to minutes per mile
-        'PaceStr': [str(pace) for pace in data['Pace']]  # String representation of pace
-    })
-    data = pd.concat([data, newStuff], axis=1)
+    data['PaceTime'] = data['Pace'].apply(lambda x: x.time/60)
+    data['PaceStr'] = data['Pace'].astype(str)
+
+    # Apply the outlier exclusion function to each zone
+    filtered_data = pd.concat([
+        exclude_outliers(data[data['Zone'] == zone], 'PaceTime')
+        for zone in data['Zone'].unique()
+    ])
 
     # Create the boxplot
     fig = go.Figure()
-
-    # Add traces for each zone using Distance as the x-axis
-    for zone in data['Zone'].unique():
-        zone_data = data[data['Zone'] == zone]
-        fig.add_trace(go.Scatter(
-            x=zone_data['Distance'],
-            y=zone_data['Pace'],
-            mode='markers+lines',
-            name=zone,
-            text=zone_data['PaceStr'],  # Tooltip labels
-            hoverinfo='text'  # Show only the text in the tooltip
+    for zone in filtered_data['Zone'].unique():
+        zone_data = filtered_data[filtered_data['Zone'] == zone]
+        fig.add_trace(go.Box(
+            y=zone_data['PaceTime'],  # Numeric pace values for the boxplot
+            x=[zone] * len(zone_data),  # Use the zone as the x-axis category
+            name=zone,  # Name of the trace (zone)
+            text=zone_data['PaceStr'],  # Tooltip labels (string representation of pace)
+            hovertemplate='Zone: %{x}<br>Pace: %{text}<extra></extra>',  # Custom tooltip format
+            boxmean=True  # Show mean as a dashed line
         ))
 
     fig.update_layout(
-        title='Min and Max Pace in Each Heart Rate Zone',
-        xaxis_title='Distance',
-        yaxis_title='Pace (min/mi)',
+        title='Pace Distribution by Heart Rate Zone (Outliers Excluded)',
+        xaxis_title='Heart Rate Zone',
+        yaxis_title='Pace (min)',
         autosize=False,
         width=800,
         height=600
@@ -298,10 +302,20 @@ def numericPlot(base, items, timeIdx, distanceIdx):
     })
     return data
 
+def exclude_outliers(df, column):
+    q1 = df[column].quantile(0.25)  # First quartile (25th percentile)
+    q3 = df[column].quantile(0.75)  # Third quartile (75th percentile)
+    iqr = q3-q1
+    lower_fence = q1 - 1.5 * iqr
+    upper_fence = q3 + 1.5 * iqr
+    return df[(df[column] >= lower_fence) & (df[column] <= upper_fence)]  # Filter data within fences
+
 
 if __name__ == '__main__':
-    CLIENT_ID = 145799
-    CLIENT_SECRET = 'bd21c12ed936cfa96efc06b5b7ab37660c5629db'
+    with open('credentials.txt', 'r') as credentials:
+        lines = credentials.readlines()
+        CLIENT_ID = lines[0].split(' = ')[1]
+        CLIENT_SECRET = lines[1].split(' = ')[1]
     my_client = setUpClient(CLIENT_ID, CLIENT_SECRET)
 
-    makePlots(my_client, 0)
+    makePlots(my_client, 1)

@@ -2,6 +2,7 @@ import units
 
 class Pace:
     def __init__(self, min, sec=0, unit=units.MILES):
+        assert type(min) == int and type(sec) == int, f"min and sec must be integers. Got {min} and {sec}"
         self.min = abs(min)
         self.sec = abs(sec)
         self.time = min*60 + sec
@@ -107,3 +108,15 @@ class Pace:
     @classmethod
     def mean(cls, listOfPaces):
         return sum(listOfPaces)/len(listOfPaces)
+
+    @classmethod
+    def fromString(cls, paceStr):
+        slashIndex = paceStr.index('/')
+        colonIndex = paceStr.index(':')
+        pieces = paceStr.split('/')
+        assert colonIndex >= 1 and slashIndex >= 1, f"{paceStr} invalid"
+        time = pieces[0]
+        unit = pieces[1]
+        min = int(time[:colonIndex])
+        sec = int(time[colonIndex+1:])
+        return Pace(min, sec, unit)
