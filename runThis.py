@@ -1,4 +1,5 @@
 import os.path
+import sys
 
 import pandas as pd
 import numpy as np
@@ -37,7 +38,7 @@ def setUpClient(client_id, client_secret):
                                              redirect_uri='http://localhost:1127/authorized',
                                              scope=['read_all', 'profile:read_all', 'activity:read_all'])
     except:
-        print('Invalid client credentials')
+        print('Invalid client credentials.txt')
         return
 
     webbrowser.open(authorize_url)
@@ -74,6 +75,7 @@ def getActivities(client):
         activity_list.append(activity_dict)
     myActivities = pd.DataFrame(activity_list)
     myActivities = myActivities[myActivities['type'].astype(str).apply(lambda x: 'Run' in x)]
+    myActivities = myActivities.reset_index(drop=True)
     myActivities.to_csv('myActivities.csv')
     return myActivities
 
@@ -101,6 +103,7 @@ def makePlots(client, rowId):
     things = myActivities.iloc[rowId]
     activityId = things['id']
     name = things['name']
+    print(f'Looking at ', name)
     hr, pace, elevation, timeIdx, distanceIdx = get_activity_streams(client, activityId, resolution='high')
 
     # Convert to imperial system
@@ -136,10 +139,11 @@ def makePlots(client, rowId):
         xaxis_title='Time',
         yaxis_title='Pace (min/mi)'
     )
-    if not os.path.exists(units.PLOT_FOLDER):
-        os.makedirs(units.PLOT_FOLDER)
+    requiredFolders = os.path.join(units.PLOT_FOLDER, name)
+    if not os.path.exists(requiredFolders):
+        os.makedirs(requiredFolders)
 
-    pio.write_html(fig, os.path.join(units.PLOT_FOLDER, f'{name}_pace_time{units.EXTENSION}'))
+    pio.write_html(fig, os.path.join(requiredFolders, f'{name}_pace_time{units.EXTENSION}'))
 
     # Distance
     index = stuff['Distance']
@@ -157,7 +161,7 @@ def makePlots(client, rowId):
         yaxis_title='Pace (min/mi)'
     )
 
-    pio.write_html(fig, os.path.join(units.PLOT_FOLDER, f'{name}_pace_distance{units.EXTENSION}'))
+    pio.write_html(fig, os.path.join(requiredFolders, f'{name}_pace_distance{units.EXTENSION}'))
 
     """ HR """
     # Time
@@ -202,7 +206,7 @@ def makePlots(client, rowId):
         height=600
     )
 
-    pio.write_html(fig, os.path.join(units.PLOT_FOLDER, f'{name}_hr_time{units.EXTENSION}'))
+    pio.write_html(fig, os.path.join(requiredFolders, f'{name}_hr_time{units.EXTENSION}'))
 
     # Distance
     fig = go.Figure()
@@ -227,12 +231,16 @@ def makePlots(client, rowId):
         height=600
     )
 
-    pio.write_html(fig, os.path.join(units.PLOT_FOLDER, f'{name}_hr_distance{units.EXTENSION}'))
+    pio.write_html(fig, os.path.join(requiredFolders, f'{name}_hr_distance{units.EXTENSION}'))
 
     if not os.path.exists('analysis'):
         os.makedirs('analysis')
 
-    analysisFile = f'analysis/{name}_analysis.txt'
+    requiredAnalysisFolders = os.path.join(units.ANALYSIS_FOLDER, name)
+    if not os.path.exists(requiredAnalysisFolders):
+        os.makedirs(requiredAnalysisFolders)
+    analysisFile = os.path.join(requiredAnalysisFolders, f'{name}_analysis.txt')
+
     open(analysisFile, 'w').close()
     with open(analysisFile, 'w') as f:
         data['Pace'] = x
@@ -283,7 +291,12 @@ def makePlots(client, rowId):
         height=600
     )
 
-    pio.write_html(fig, os.path.join(units.PLOT_FOLDER, f'{name}_pace_hr_boxplot{units.EXTENSION}'))
+    pio.write_html(fig, os.path.join(requiredFolders, f'{name}_pace_hr_boxplot{units.EXTENSION}'))
+
+    x = data[['HR', 'PaceTime']]
+    correlation = x.corr()['HR']['PaceTime']
+    with open(analysisFile, 'a') as a:
+        a.write(f'\n\nCorrelation: {float(correlation)}')
 
 def getZone(values, hr):
     n = len(values)
@@ -312,10 +325,15 @@ def exclude_outliers(df, column):
 
 
 if __name__ == '__main__':
+    if len(sys.argv) > 1:
+        rowId = int(sys.argv[1])-1
+    else:
+        rowId = 0
+
     with open('credentials.txt', 'r') as credentials:
         lines = credentials.readlines()
         CLIENT_ID = lines[0].split(' = ')[1]
         CLIENT_SECRET = lines[1].split(' = ')[1]
-    my_client = setUpClient(CLIENT_ID, CLIENT_SECRET)
 
-    makePlots(my_client, 1)
+    my_client = setUpClient(CLIENT_ID, CLIENT_SECRET)
+    makePlots(my_client, rowId)
