@@ -332,8 +332,20 @@ if __name__ == '__main__':
 
     with open('credentials.txt', 'r') as credentials:
         lines = credentials.readlines()
-        CLIENT_ID = lines[0].split(' = ')[1]
-        CLIENT_SECRET = lines[1].split(' = ')[1]
+        missingCount = 0
+        try:
+            CLIENT_ID = lines[0].split(' = ')[1]
+        except:
+            print('Missing Client ID')
+            missingCount += 1
+
+        try:
+            CLIENT_SECRET = lines[1].split(' = ')[1]
+        except:
+            print('Missing Client Secret')
+            missingCount += 1
+
+        assert missingCount == 0, 'Improper credentials'
 
     my_client = setUpClient(CLIENT_ID, CLIENT_SECRET)
     makePlots(my_client, rowId)

@@ -10,7 +10,9 @@ Refer to Step B
 
 ## Running instructions:
 
-`python runThis.py` or `python runThis.py <rowId>`
+`python runThis.py`
+
+`python runThis.py <rowId>`
 
 * Terminal
   * Pass in the row number as a command-line parameter
