@@ -1,11 +1,9 @@
 import os.path
 import sys
-
 import pandas as pd
 import numpy as np
 from stravalib import Client
 import webbrowser
-
 import units
 from Pace import Pace
 from units import *
@@ -131,7 +129,8 @@ def makePlots(client, rowId):
         x=index,
         y=y_values,
         mode='markers+lines',
-        text=labels
+        text=[f"{str(pace)}, {hr[i]} BPM" for i, pace in enumerate(myPaces)],
+        marker=dict(color=hr, colorscale='solar', colorbar=dict(title='Heart Rate'))
     ))
 
     fig.update_layout(
@@ -285,7 +284,7 @@ def makePlots(client, rowId):
     fig.update_layout(
         title='Pace Distribution by Heart Rate Zone (Outliers Excluded)',
         xaxis_title='Heart Rate Zone',
-        yaxis_title='Pace (min)',
+        yaxis_title='Pace (min/mi)',
         autosize=False,
         width=800,
         height=600
