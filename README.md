@@ -10,19 +10,21 @@ Refer to Step B
 
 ## Running instructions:
 
-`python runThis.py`
+`python3 runThis.py`
 
-`python runThis.py <rowId>`
+`python3 runThis.py <rowId>`
 
 * Terminal
   * Pass in the row number as a command-line parameter
-    * i.e. 3 means the third run
+    * i.e. `3` means the third run
     * defaults to the _most recent_ run
 * File
   * Click run
-  * Set `rowId` to desired value as described above
+  * Set `rowId` to desired value
 
-You may need to authenticate. If you choose to do so, your token will be valid for the next 6 hours. See Strava API [documentation](https://developers.strava.com/docs/reference/) for more details.
+You may need to authenticate. If you choose to do so, your token will be valid for the next 6 hours.
+
+See Strava API [documentation](https://developers.strava.com/docs/reference/) for more details.
 
 
 ### Authentication

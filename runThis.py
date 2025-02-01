@@ -134,7 +134,7 @@ def makePlots(client, rowId):
     ))
 
     fig.update_layout(
-        title='Pace Plot',
+        title=f'Pace Plot: {name}',
         xaxis_title='Time',
         yaxis_title='Pace (min/mi)'
     )
@@ -147,16 +147,18 @@ def makePlots(client, rowId):
     # Distance
     index = stuff['Distance']
     y_values = [pace.time / 60 for pace in myPaces]
-    labels = [str(pace) for pace in myPaces]
+
     fig = go.Figure(data=go.Scatter(
         x=index,
         y=y_values,
         mode='markers+lines',
-        text=labels
+        text=[f"{str(pace)}, {hr[i]} BPM" for i, pace in enumerate(myPaces)],
+        marker=dict(color=hr, colorscale='solar', colorbar=dict(title='Heart Rate'))
     ))
+
     fig.update_layout(
         title='Pace Plot',
-        xaxis_title='Distance (mi)',
+        xaxis_title='Distance',
         yaxis_title='Pace (min/mi)'
     )
 
@@ -277,7 +279,7 @@ def makePlots(client, rowId):
             x=[zone] * len(zone_data),  # Use the zone as the x-axis category
             name=zone,  # Name of the trace (zone)
             text=zone_data['PaceStr'],  # Tooltip labels (string representation of pace)
-            hovertemplate='Zone: %{x}<br>Pace: %{text}<extra></extra>',  # Custom tooltip format
+            hovertemplate='%{x}<br>Pace: %{text}<extra></extra>',  # Custom tooltip format
             boxmean=True  # Show mean as a dashed line
         ))
 
