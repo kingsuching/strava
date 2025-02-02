@@ -41,6 +41,7 @@ def setUpClient(client_id, client_secret):
 
     webbrowser.open(authorize_url)
     code = input("Code: ")
+    code = code.strip()
     tokenStuff = client.exchange_code_for_token(client_id=client_id, client_secret=client_secret, code=code)
 
     access = tokenStuff['access_token']
@@ -98,6 +99,7 @@ def get_activity_streams(client, activity_id, resolution='high'):
 
 def makePlots(client, rowId):
     myActivities = getActivities(client)
+    assert 0 <= rowId < len(myActivities), 'Invalid rowId'
     things = myActivities.iloc[rowId]
     activityId = things['id']
     name = things['name']
@@ -329,24 +331,28 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         rowId = int(sys.argv[1])-1
     else:
-        rowId = 0
+        rowId = 0 # SET THIS TO YOUR DESIRED VALUE (ZERO-INDEX)
 
     with open('credentials.txt', 'r') as credentials:
         lines = credentials.readlines()
         missingCount = 0
         try:
             CLIENT_ID = lines[0].split(' = ')[1]
+            if CLIENT_ID.strip() == '':
+                raise ValueError('Missing Client ID')
         except:
             print('Missing Client ID')
             missingCount += 1
 
         try:
             CLIENT_SECRET = lines[1].split(' = ')[1]
+            if CLIENT_SECRET.strip() == '':
+                raise ValueError('Missing Client Secret')
         except:
             print('Missing Client Secret')
             missingCount += 1
 
-        assert missingCount == 0, 'Improper credentials'
+        assert missingCount == 0, 'See above for what you are missing'
 
     my_client = setUpClient(CLIENT_ID, CLIENT_SECRET)
     makePlots(my_client, rowId)
