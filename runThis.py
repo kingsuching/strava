@@ -140,7 +140,7 @@ def makePlots(client, rowId):
         xaxis_title='Time',
         yaxis_title='Pace (min/mi)'
     )
-    requiredFolders = os.path.join(units.PLOT_FOLDER, name)
+    requiredFolders = os.path.join(units.RUN_FOLDER, name, units.PLOT_FOLDER)
     if not os.path.exists(requiredFolders):
         os.makedirs(requiredFolders)
 
@@ -236,10 +236,7 @@ def makePlots(client, rowId):
 
     pio.write_html(fig, os.path.join(requiredFolders, f'{name}_hr_distance{units.EXTENSION}'))
 
-    if not os.path.exists('analysis'):
-        os.makedirs('analysis')
-
-    requiredAnalysisFolders = os.path.join(units.ANALYSIS_FOLDER, name)
+    requiredAnalysisFolders = os.path.join(units.RUN_FOLDER, name, units.ANALYSIS_FOLDER)
     if not os.path.exists(requiredAnalysisFolders):
         os.makedirs(requiredAnalysisFolders)
     analysisFile = os.path.join(requiredAnalysisFolders, f'{name}_analysis.txt')
@@ -319,20 +316,14 @@ def numericPlot(base, items, timeIdx, distanceIdx):
     return data
 
 def exclude_outliers(df, column):
-    q1 = df[column].quantile(0.25)  # First quartile (25th percentile)
-    q3 = df[column].quantile(0.75)  # Third quartile (75th percentile)
+    q1 = df[column].quantile(0.25)
+    q3 = df[column].quantile(0.75)
     iqr = q3-q1
     lower_fence = q1 - 1.5 * iqr
     upper_fence = q3 + 1.5 * iqr
-    return df[(df[column] >= lower_fence) & (df[column] <= upper_fence)]  # Filter data within fences
+    return df[(df[column] >= lower_fence) & (df[column] <= upper_fence)]
 
-
-if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        rowId = int(sys.argv[1])-1
-    else:
-        rowId = 0 # SET THIS TO YOUR DESIRED VALUE (ZERO-INDEX)
-
+def main(rowId):
     with open('credentials.txt', 'r') as credentials:
         lines = credentials.readlines()
         missingCount = 0
@@ -356,3 +347,25 @@ if __name__ == '__main__':
 
     my_client = setUpClient(CLIENT_ID, CLIENT_SECRET)
     makePlots(my_client, rowId)
+
+def parseRowId():
+    if len(sys.argv) > 1:
+        return int(sys.argv[1]), True
+    return units.DEFAULT_VALUE, False
+
+def starter(cont=False):
+    r, bool = parseRowId()
+    if bool:
+        main(r - 1)
+    else:
+        main(r)
+
+    while cont:
+        try:
+            main(r)
+            r += 1
+        except:
+            break
+
+if __name__ == '__main__':
+    starter()
