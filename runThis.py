@@ -178,18 +178,15 @@ def makePlots(client, rowId):
     except:
         data['Zone'] = data[base].apply(lambda x: getZone(values, x))
 
-    fig = go.Figure()
     zone_colors = {
-        'Zone 1': 'green',
-        'Zone 2': 'yellow',
-        'Zone 3': 'orange',
-        'Zone 4': 'red'
+        'Endurance': 'green',
+        'Moderate': 'yellow',
+        'Tempo': 'orange',
+        'Threshold': 'red',
+        'Redline': 'black'
     }
 
-    # Create the figure
     fig = go.Figure()
-
-    # Add traces for each zone
     for zone in data['Zone'].unique():
         zone_data = data[data['Zone'] == zone]
         fig.add_trace(go.Scatter(
@@ -293,10 +290,37 @@ def makePlots(client, rowId):
 
     pio.write_html(fig, os.path.join(requiredFolders, f'{name}_pace_hr_boxplot{units.EXTENSION}'))
 
+    data = numericPlot('Elevation', elevation, timeIdx, distanceIdx)
+    fig = px.line(data, x='Time', y='Elevation', title=f'Elevation: {name}')
+    fig.update_layout(autosize=False, width=800, height=600)
+    pio.write_html(fig, os.path.join(requiredFolders, f'{name}_elevation_time_plot{units.EXTENSION}'))
+
+    fig = px.line(data, x='Distance', y='Elevation', title=f'Elevation: {name}')
+    fig.update_layout(autosize=False, width=800, height=600)
+    pio.write_html(fig, os.path.join(requiredFolders, f'{name}_elevation_distance_plot{units.EXTENSION}'))
+
+    data['Pace'] = x
+    data['HR'] = hr
+    data['PaceTime'] = data['Pace'].apply(lambda x: x.time)
+    data['PaceStr'] = data['Pace'].astype(str)
+
     x = data[['HR', 'PaceTime']]
     correlation = x.corr()['HR']['PaceTime']
+
+    elevationGradient = gradient(elevation)
+    hrGradient = gradient(hr)
+
+    data['Elevation Gradient'] = elevationGradient
+    data['HR Gradient'] = hrGradient
+
+    fig = px.scatter(data, x='HR Gradient', y='Elevation Gradient', title='Elevation Gradient')
+    pio.write_html(fig, os.path.join(requiredFolders, f'{name}_elevation_hr_gradient{units.EXTENSION}'))
+    elevationGain = data[data['Elevation Gradient'] > 0]['Elevation Gradient'].sum()
     with open(analysisFile, 'a') as a:
-        a.write(f'\n\nCorrelation: {float(correlation)}')
+        a.write(f'\n\nCorrelation between Heart Rate and Pace = {float(correlation)}')
+        a.write(f'\nAverage Elevation Gradient = {data['Elevation Gradient'].mean()}')
+        a.write(f'\nAverage HR Gradient = {data['HR Gradient'].mean()}')
+        a.write(f'\nElevation Gain = {elevationGain} ft | {elevationGain/3.281} m')
 
 def getZone(values, hr):
     n = len(values)
@@ -304,7 +328,7 @@ def getZone(values, hr):
     for i in range(n):
         bucket = values[i]
         if bucket['min'] <= hr <= bucket['max']:
-            return f'Zone {i+1}'
+            return units.HR_ZONES[i]
     raise ValueError(f'HR {hr} is out of range')
 
 def numericPlot(base, items, timeIdx, distanceIdx):
@@ -347,6 +371,16 @@ def main(rowId):
 
     my_client = setUpClient(CLIENT_ID, CLIENT_SECRET)
     makePlots(my_client, rowId)
+
+def gradient(arr, gap=1):
+    slopes = []
+    for i in range(0, len(arr), gap):
+        if i == 0:
+            rise = i
+        else:
+            rise = arr[i] - arr[i-gap]
+        slopes.append(rise)
+    return slopes
 
 def parseRowId():
     if len(sys.argv) > 1:

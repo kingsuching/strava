@@ -9,3 +9,4 @@ RUN_FOLDER = 'runs'
 
 # Change this for your desired row ID to be analyzed
 DEFAULT_VALUE = 0
+HR_ZONES = ['Endurance', 'Moderate', 'Tempo', 'Threshold', 'Redline']
