@@ -86,3 +86,14 @@ def get_activity_streams(client, activity_id, resolution='high'):
     time_index = streams['time'].data if 'time' in streams else None
     distance_index = streams['distance'].data if 'distance' in streams else None
     return heart_rate, velocity, elevation, time_index, distance_index
+
+def diff(s1, s2):
+    return s1[~s1.isin(s2)]
+
+def exclude_outliers(df, column):
+    q1 = df[column].quantile(0.25)
+    q3 = df[column].quantile(0.75)
+    iqr = q3-q1
+    lower_fence = q1 - 1.5 * iqr
+    upper_fence = q3 + 1.5 * iqr
+    return df[(df[column] >= lower_fence) & (df[column] <= upper_fence)]

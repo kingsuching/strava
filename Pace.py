@@ -83,8 +83,10 @@ class Pace:
         """
         Create a Pace object from speed in meters per second (m/s).
         """
-        if speed_in_mps <= 0:
-            return Pace(0, units.MILES)
+        if speed_in_mps == 0:
+            return Pace(0, 0, units.MILES)
+        if speed_in_mps < 0:
+            return Pace.from_mps(-speed_in_mps)
 
         # Convert m/s to min/mi
         time_in_seconds = (1 / speed_in_mps) * 1609.344
@@ -99,7 +101,7 @@ class Pace:
         Create a Pace object from time in seconds per [unit].
         """
         if time_in_seconds <= 0:
-            return Pace(0, unit)
+            return Pace(0, 0, unit)
 
         minutes = int(time_in_seconds // 60)
         seconds = int(time_in_seconds % 60)

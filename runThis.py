@@ -339,14 +339,6 @@ def numericPlot(base, items, timeIdx, distanceIdx):
     })
     return data
 
-def exclude_outliers(df, column):
-    q1 = df[column].quantile(0.25)
-    q3 = df[column].quantile(0.75)
-    iqr = q3-q1
-    lower_fence = q1 - 1.5 * iqr
-    upper_fence = q3 + 1.5 * iqr
-    return df[(df[column] >= lower_fence) & (df[column] <= upper_fence)]
-
 def main(rowId):
     with open('credentials.txt', 'r') as credentials:
         lines = credentials.readlines()
