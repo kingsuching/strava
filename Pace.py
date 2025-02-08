@@ -1,4 +1,5 @@
 import units
+import json
 
 class Pace:
     def __init__(self, min, sec=0, unit=units.MILES):
@@ -122,3 +123,23 @@ class Pace:
         min = int(time[:colonIndex])
         sec = int(time[colonIndex+1:])
         return Pace(min, sec, unit)
+
+    def to_dict(self):
+        return {
+            'min': self.min,
+            'sec': self.sec,
+            'unit': self.unit,
+            'time': self.time
+        }
+
+    def to_json(self):
+        return json.dumps(self.to_dict())
+
+    @staticmethod
+    def from_dict(data):
+        return Pace(data['min'], data['sec'], data['unit'])
+
+    @staticmethod
+    def from_json(json_str):
+        data = json.loads(json_str)
+        return Pace.from_dict(data)
