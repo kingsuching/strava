@@ -67,6 +67,9 @@ class Pace:
     def __neg__(self):
         return Pace.fromSeconds(-self.time, self.unit)
 
+    def __ne__(self, other):
+        return not self == other
+
     def convert(self):
         if self.unit == units.MILES:
             newTime = self.time / units.FACTOR

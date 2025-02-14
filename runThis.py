@@ -1,22 +1,16 @@
+import datetime
 import os.path
 import sys
-import pandas as pd
-import numpy as np
-from stravalib import Client
-import webbrowser
-import units
-from Pace import Pace
-from units import *
+import warnings
 import plotly.express as px
 import plotly.graph_objects as go
-import matplotlib.pyplot as plt
 import plotly.io as pio
-import webbrowser
+import pytz
+import units
+from Pace import Pace
 from functions import *
-from tqdm import tqdm
-import pickle
-import warnings
 from units import *
+
 warnings.filterwarnings('ignore')
 
 def setUpClient(client_id, client_secret):
@@ -52,9 +46,15 @@ def setUpClient(client_id, client_secret):
 
     # get client expiration time
     expTime = tokenStuff['expires_at']
-    # convert to 12 hour time
-    expTime -= 14400
-    print(f'Expires at {pd.to_datetime(expTime, unit="s").strftime("%Y-%m-%d %I:%M %p")}')
+    exp_datetime = datetime.datetime.fromtimestamp(expTime)
+    print(exp_datetime)
+    exp_datetime = exp_datetime.replace(tzinfo=pytz.utc)
+    timezone = datetime.datetime.now().astimezone().tzinfo
+    exp_datetime = exp_datetime.astimezone(timezone)
+
+    # convert to 12-hour time
+    exp_datetime = exp_datetime.strftime('%b %d, %Y %I:%M %p')
+    print(f'Token expires at {exp_datetime} {timezone}')
 
     return client
 
@@ -109,7 +109,7 @@ def makePlots(client, rowId):
     things = myActivities.iloc[rowId]
     activityId = things['id']
     name = things['name']
-    print(f'Looking at ', name)
+    print(f'Looking at', name)
     hr, pace, elevation, timeIdx, distanceIdx = get_activity_streams(client, activityId, resolution='high')
 
     # Convert to imperial system
@@ -346,27 +346,7 @@ def numericPlot(base, items, timeIdx, distanceIdx):
     return data
 
 def main(rowId):
-    with open('credentials.txt', 'r') as credentials:
-        lines = credentials.readlines()
-        missingCount = 0
-        try:
-            CLIENT_ID = lines[0].split(' = ')[1]
-            if CLIENT_ID.strip() == '':
-                raise ValueError('Missing Client ID')
-        except:
-            print('Missing Client ID')
-            missingCount += 1
-
-        try:
-            CLIENT_SECRET = lines[1].split(' = ')[1]
-            if CLIENT_SECRET.strip() == '':
-                raise ValueError('Missing Client Secret')
-        except:
-            print('Missing Client Secret')
-            missingCount += 1
-
-        assert missingCount == 0, 'See above for what you are missing'
-
+    CLIENT_ID, CLIENT_SECRET = readCredentials('credentials.txt')
     my_client = setUpClient(CLIENT_ID, CLIENT_SECRET)
     makePlots(my_client, rowId)
 

@@ -97,3 +97,10 @@ def exclude_outliers(df, column):
     lower_fence = q1 - 1.5 * iqr
     upper_fence = q3 + 1.5 * iqr
     return df[(df[column] >= lower_fence) & (df[column] <= upper_fence)]
+
+def readCredentials(path='credentials.txt'):
+    with open(path, 'r') as f:
+        lines = f.readlines()
+        client_id = lines[0].split(' = ')[1]
+        client_secret = lines[1].split(' = ')[1]
+    return int(client_id), client_secret
