@@ -50,6 +50,12 @@ def setUpClient(client_id, client_secret):
     with open(PKL, 'wb') as f:
         pickle.dump(client, f)
 
+    # get client expiration time
+    expTime = tokenStuff['expires_at']
+    # convert to 12 hour time
+    expTime -= 14400
+    print(f'Expires at {pd.to_datetime(expTime, unit="s").strftime("%Y-%m-%d %I:%M %p")}')
+
     return client
 
 
@@ -382,7 +388,7 @@ def parseRowId():
 def starter(cont=False):
     r, bool = parseRowId()
     if bool:
-        main(r - 1)
+        main(r-1)
     else:
         main(r)
 
