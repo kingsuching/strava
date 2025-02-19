@@ -71,15 +71,11 @@ def getActivities(client):
 
 
 def get_activity_streams(client, activity_id, resolution='high'):
-    """
-    Fetch heart rate, pace (velocity), and elevation streams for a given activity ID.
-    """
     streams = client.get_activity_streams(
         activity_id,
         types=['heartrate', 'velocity_smooth', 'altitude', 'time', 'distance'],
         resolution=resolution,
     )
-
     heart_rate = streams['heartrate'].data if 'heartrate' in streams else None
     velocity = streams['velocity_smooth'].data if 'velocity_smooth' in streams else None
     elevation = streams['altitude'].data if 'altitude' in streams else None

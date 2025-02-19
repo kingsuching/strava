@@ -322,11 +322,12 @@ def makePlots(client, rowId):
     fig = px.scatter(data, x='HR Gradient', y='Elevation Gradient', title='Elevation Gradient')
     pio.write_html(fig, os.path.join(requiredFolders, f'{name}_elevation_hr_gradient{units.EXTENSION}'))
     elevationGain = data[data['Elevation Gradient'] > 0]['Elevation Gradient'].sum()
+    m = round(elevationGain/3.281, 0)
     with open(analysisFile, 'a') as a:
         a.write(f'\n\nCorrelation between Heart Rate and Pace = {float(correlation)}')
         a.write(f'\nAverage Elevation Gradient = {data['Elevation Gradient'].mean()}')
         a.write(f'\nAverage HR Gradient = {data['HR Gradient'].mean()}')
-        a.write(f'\nElevation Gain = {elevationGain} ft | {elevationGain/3.281} m')
+        a.write(f'\nElevation Gain = {elevationGain} ft | {m} m')
 
 def getZone(values, hr):
     n = len(values)
